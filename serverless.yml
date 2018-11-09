@@ -1,0 +1,88 @@
+service:
+  name: security-bot
+
+# Add the serverless-webpack plugin
+plugins:
+  - serverless-webpack
+
+provider:
+  name: aws
+  region: ap-northeast-1
+  runtime: nodejs8.10
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+          - dynamodb:Scan
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          - dynamodb:DeleteItem
+        Resource: '*'
+
+functions:
+  checkMessage:
+    handler: handler.checkMessage
+    memorySize: 128
+    description: トークン・メッセージの確認
+    events:
+      - http:
+          method: post
+          path: check-message
+
+  sendMessage:
+    handler: handler.sendMessage
+    memorySize: 128
+    description: チャットワークメッセージ通信
+    events:
+      - sns: sendMessage
+
+  seed:
+    handler: handler.seed
+    memorySize: 128
+    description: 対象言葉の初期登録
+
+  addWord:
+    handler: handler.addWord
+    memorysize: 128
+    description: 対象言葉の追加
+    events:
+      - sns: addword
+
+  removeWord:
+    handler: handler.removeWord
+    memorysize: 128
+    description: 対象言葉の削除
+    events:
+      - sns: removeword
+
+  getWords:
+    handler: handler.getWords
+    memorySize: 128
+    description: 対象言葉の一覧
+    events:
+      - sns: getWords
+
+  help:
+    handler: handler.help
+    memorySize: 128
+    description: 使い方のメッセージ通信
+    events:
+      - sns: help
+
+resources:
+  Resources:
+    SecurityBotDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: 'name'
+             AttributeType: 'S'
+         KeySchema:
+           -
+             AttributeName: 'name'
+             KeyType: 'HASH'
+         ProvisionedThroughput:
+           ReadCapacityUnits: 1
+           WriteCapacityUnits: 1
+         TableName: 'words'

@@ -1,0 +1,55 @@
+{
+  "words": [
+    {
+      "name": "apache"
+    },
+    {
+      "name": "nginx"
+    },
+    {
+      "name": "elasticsearch"
+    },
+    {
+      "name": "redis"
+    },
+    {
+      "name": "mysql"
+    },
+    {
+      "name": "postgresql"
+    },
+    {
+      "name": "aws"
+    },
+    {
+      "name": "php"
+    },
+    {
+      "name": "laravel"
+    },
+    {
+      "name": "composer"
+    },
+    {
+      "name": "javascript"
+    },
+    {
+      "name": "node"
+    },
+    {
+      "name": "vue"
+    },
+    {
+      "name": "backlog"
+    },
+    {
+      "name": "バックロッグ"
+    },
+    {
+      "name": "chatwork"
+    },
+    {
+      "name": "チャットワーク"
+    }
+  ]
+}
