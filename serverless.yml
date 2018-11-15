@@ -9,15 +9,21 @@ provider:
   name: aws
   region: ap-northeast-1
   runtime: nodejs8.10
-    iamRoleStatements:
-      - Effect: Allow
-        Action:
-          - dynamodb:Query
-          - dynamodb:Scan
-          - dynamodb:GetItem
-          - dynamodb:PutItem
-          - dynamodb:DeleteItem
-        Resource: '*'
+  environment:
+    CHATWORK_CHATROOM_ID: ${ssm:chatworkChatroomId}
+    CHATWORK_API_TOKEN: ${ssm:chatworkApiToken}
+    CHATWORK_WEBHOOK_TOKEN: ${ssm:chatworkWebhookToken}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:DeleteItem
+        - sns:CreateTopic
+        - sns:Publish
+      Resource: '*'
 
 functions:
   checkMessage:
@@ -40,6 +46,8 @@ functions:
     handler: handler.seed
     memorySize: 128
     description: 対象言葉の初期登録
+    events:
+      - sns: seed
 
   addWord:
     handler: handler.addWord
@@ -77,12 +85,12 @@ resources:
         AttributeDefinitions:
           -
             AttributeName: 'name'
-             AttributeType: 'S'
-         KeySchema:
-           -
-             AttributeName: 'name'
-             KeyType: 'HASH'
-         ProvisionedThroughput:
-           ReadCapacityUnits: 1
-           WriteCapacityUnits: 1
-         TableName: 'words'
+            AttributeType: 'S'
+        KeySchema:
+         -
+            AttributeName: 'name'
+            KeyType: 'HASH'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: 'words'

@@ -1,0 +1,3 @@
+interface SecurityBotSNSMessage {
+  word: string,
+}
