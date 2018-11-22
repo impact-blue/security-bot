@@ -1,0 +1,10 @@
+image: node:10
+
+pipelines:
+  default:
+    - step:
+        caches:
+          - node
+        script:
+          - yarn
+          - yarn lint

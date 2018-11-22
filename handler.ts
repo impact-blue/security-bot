@@ -1,9 +1,9 @@
 import { APIGatewayEvent, Callback, Context, Handler, SNSEvent } from 'aws-lambda';
 import { DynamoDB, SNS } from 'aws-sdk';
 import { createHmac } from 'crypto';
-import fetch from 'node-fetch';
+import nodeFetch from 'node-fetch';
 import { request } from 'https';
-import seeds from './seeds.json';
+import seedsJson from './seeds.json';
 
 const dynamoDB: DynamoDB.DocumentClient = new DynamoDB.DocumentClient();
 const sns: SNS = new SNS();
@@ -17,15 +17,15 @@ export const checkMessage: Handler = (event: APIGatewayEvent, context: Context, 
   const messageBody: string = requestBody.webhook_event.body;
 
   if (!token) {
-    callback(new Error("CHATWORK_WEBHOOK_TOKEN is not set!"));
+    callback(new Error('CHATWORK_WEBHOOK_TOKEN is not set!'));
   }
 
   if (!requestSignature) {
-    callback(new Error("Chatwork webhook signature header missing!"));
+    callback(new Error('Chatwork webhook signature header missing!'));
   }
 
   if (!requestBody) {
-    callback(new Error("Request body is empty!"));
+    callback(new Error('Request body is empty!'));
   }
 
   if (requestSignature !== expectedSignature) {
@@ -66,7 +66,7 @@ export const sendMessage: Handler = (event: SNSEvent, context: Context, callback
   const token: string = process.env.CHATWORK_API_TOKEN;
   const message: string = `[info][title]ブルーくん[/title]${event.Records[0].Sns.Message}[/info]`;
 
-  fetch(`https://api.chatwork.com/v2/rooms/${chatroomId}/messages`, {
+  nodeFetch(`https://api.chatwork.com/v2/rooms/${chatroomId}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -81,10 +81,10 @@ export const seed: Handler = (event: APIGatewayEvent, context: Context, callback
     TableName: 'words',
     Item: {
       name: '',
-    }
+    },
   };
 
-  seeds.words.forEach(({ name }: Word) => {
+  seedsJson.words.forEach(({ name }: Word) => {
     params.Item.name = name;
     dynamoDB.put(params).promise().catch((error: AWS.AWSError) => callback(error));
   });
@@ -95,7 +95,7 @@ export const addWord: Handler = (event: SNSEvent, context: Context, callback: Ca
   const params: DynamoDB.DocumentClient.PutItemInput = {
     TableName: 'words',
     Item: {
-      'name': word,
+      name: word,
     },
     ConditionExpression: 'attribute_not_exists(#n)',
     ExpressionAttributeNames: {
@@ -129,7 +129,7 @@ export const removeWord: Handler = (event: SNSEvent, context: Context, callback:
 
 export const getWords: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
   const words: [] = [];
-  const message: string = "対象言葉：\n";
+  const message: string = '対象言葉：\n';
   const topicName: string = 'sendMessage';
   const params: DynamoDB.DocumentClient.QueryInput = {
     TableName: 'words',
@@ -141,9 +141,8 @@ export const getWords: Handler = (event: SNSEvent, context: Context, callback: C
 
 };
 
-
 export const help: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
-  const message: string = "使い方：\nブルーくん、使い方教えて\nブルーくん、phpを追加して\nブルーくん、phpを削除して\nブルーくん、対象言葉みせて";
+  const message: string = '使い方：\nブルーくん、使い方教えて\nブルーくん、phpを追加して\nブルーくん、phpを削除して\nブルーくん、対象言葉みせて';
   const topicName: string = 'sendMessage';
 
   sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
