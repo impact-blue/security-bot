@@ -54,14 +54,14 @@ functions:
     memorysize: 128
     description: 対象言葉の追加
     events:
-      - sns: addword
+      - sns: addWord
 
   removeWord:
     handler: handler.removeWord
     memorysize: 128
     description: 対象言葉の削除
     events:
-      - sns: removeword
+      - sns: removeWord
 
   getWords:
     handler: handler.getWords
