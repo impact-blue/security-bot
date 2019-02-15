@@ -4,6 +4,7 @@ import { createHmac } from 'crypto';
 import nodeFetch from 'node-fetch';
 import { request } from 'https';
 import seedsJson from './seeds.json';
+import { words } from 'seeds.json';
 
 const dynamoDB: DynamoDB.DocumentClient = new DynamoDB.DocumentClient();
 const sns: SNS = new SNS();
@@ -128,17 +129,23 @@ export const removeWord: Handler = (event: SNSEvent, context: Context, callback:
 };
 
 export const getWords: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
-  const words: [] = [];
+  const words: string[] = [];
   const message: string = '対象言葉：\n';
   const topicName: string = 'sendMessage';
   const params: DynamoDB.DocumentClient.QueryInput = {
     TableName: 'words',
   };
 
-  sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-    sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
-  }).catch((error: AWS.AWSError) => callback(error));
+  dynamoDB.scan(params).promise().then((data: DynamoDB.DocumentClient.ScanOutput) => {
+    data.Items.forEach((word: Word) => words.push(word.name));
 
+    sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
+      sns.publish({
+        TopicArn: data.TopicArn,
+        Message:  message + words.join('\n'),
+      }).promise().catch((error: AWS.AWSError) => callback(error));
+    }).catch((error: AWS.AWSError) => callback(error));
+  }).catch((error: AWS.AWSError) => callback(error));
 };
 
 export const help: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
