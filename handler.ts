@@ -47,7 +47,7 @@ export const checkMessage: Handler = (event: APIGatewayEvent, context: Context, 
       message = messageBody.substring('ブルーくん、'.length, addWord);
       topicName = 'addWord';
     } else if (removeWord > -1) {
-      message = messageBody.substring('ブルーくん、'.length, addWord);
+      message = messageBody.substring('ブルーくん、'.length, removeWord);
       topicName = 'removeWord';
     } else if (messageBody.indexOf('対象言葉みせて') > -1) {
       message = 'getWords';
@@ -126,6 +126,37 @@ export const addWord: Handler = (event: SNSEvent, context: Context, callback: Ca
 };
 
 export const removeWord: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
+  const word: string = event.Records[0].Sns.Message;
+  const params: DynamoDB.DocumentClient.DeleteItemInput = {
+    TableName: 'words',
+    Key: {
+      name: word,
+    },
+    ConditionExpression: 'attribute_exists(#n)',
+    ExpressionAttributeNames: {
+      '#n': 'name',
+    },
+  };
+
+  dynamoDB.delete(params).promise().then((data: DynamoDB.DocumentClient.DeleteItemOutput) => {
+    const message: string = `${word}を削除しました！`;
+    const topicName: string = 'sendMessage';
+
+    sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
+      sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
+    }).catch((error: AWS.AWSError) => callback(error));
+  }).catch((error: AWS.AWSError) => {
+    if (error.code === 'ConditionalCheckFailedException') {
+      const message: string = `${word}は登録されていません！`;
+      const topicName: string = 'sendMessage';
+
+      sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
+        sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
+      }).catch((error: AWS.AWSError) => callback(error));
+    } else {
+      callback(error);
+    }
+  });
 };
 
 export const getWords: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
