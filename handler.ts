@@ -167,11 +167,14 @@ export const checkRSS: Handler = (event: ScheduledEvent, context: Context, callb
   // if monday, check back until friday 10am
 };
 
-export const help: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
+export const help: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
   const message: string = '使い方：\nブルーくん、使い方教えて\nブルーくん、phpを追加して\nブルーくん、phpを削除して\nブルーくん、対象言葉みせて';
   const topicName: string = 'sendMessage';
 
-  sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-    sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
-  }).catch((error: AWS.AWSError) => callback(error));
+  try {
+    const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
+    await sns.publish({ TopicArn, Message:  message }).promise();
+  } catch (error) {
+    callback(error);
+  }
 };
