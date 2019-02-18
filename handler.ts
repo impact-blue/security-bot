@@ -109,8 +109,8 @@ export const addWord: Handler = (event: SNSEvent, context: Context, callback: Ca
   });
 };
 
-export const removeWord: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
-  const word: string = event.Records[0].Sns.Message;
+export const removeWord: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
+  const word = event.Records[0].Sns.Message;
   const params: DynamoDB.DocumentClient.DeleteItemInput = {
     TableName: 'words',
     Key: {
@@ -122,25 +122,29 @@ export const removeWord: Handler = (event: SNSEvent, context: Context, callback:
     },
   };
 
-  dynamoDB.delete(params).promise().then((data: DynamoDB.DocumentClient.DeleteItemOutput) => {
-    const message: string = `${word}を削除しました！`;
-    const topicName: string = 'sendMessage';
+  try {
+    await dynamoDB.delete(params).promise();
 
-    sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-      sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
-    }).catch((error: AWS.AWSError) => callback(error));
-  }).catch((error: AWS.AWSError) => {
+    const message = `${word}を削除しました！`;
+    const topicName = 'sendMessage';
+    const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
+
+    await sns.publish({ TopicArn, Message:  message }).promise();
+  } catch (error) {
     if (error.code === 'ConditionalCheckFailedException') {
-      const message: string = `${word}は登録されていません！`;
-      const topicName: string = 'sendMessage';
+      try {
+        const message = `${word}は登録されていません！`;
+        const topicName = 'sendMessage';
+        const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
 
-      sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-        sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
-      }).catch((error: AWS.AWSError) => callback(error));
+        await sns.publish({ TopicArn, Message:  message }).promise();
+      } catch (error) {
+        callback(error);
+      }
     } else {
       callback(error);
     }
-  });
+  }
 };
 
 export const getWords: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
