@@ -168,8 +168,8 @@ export const checkRSS: Handler = (event: ScheduledEvent, context: Context, callb
 };
 
 export const help: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
-  const message: string = '使い方：\nブルーくん、使い方教えて\nブルーくん、phpを追加して\nブルーくん、phpを削除して\nブルーくん、対象言葉みせて';
-  const topicName: string = 'sendMessage';
+  const message = '使い方：\nブルーくん、使い方教えて\nブルーくん、phpを追加して\nブルーくん、phpを削除して\nブルーくん、対象言葉みせて';
+  const topicName = 'sendMessage';
 
   try {
     const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
