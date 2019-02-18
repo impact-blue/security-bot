@@ -63,6 +63,13 @@ functions:
     events:
       - sns: getWords
 
+  checkRSS:
+    handler: handler.checkRSS
+    memorySize: 128
+    description: RSSフィードのチェック
+    #    events:
+    #      - schedule: cron(0 1 * * MON-FRI *) # UTC01:00 (JSTが+9時間), 月〜金
+
   help:
     handler: handler.help
     memorySize: 128

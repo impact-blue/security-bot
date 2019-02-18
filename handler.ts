@@ -1,4 +1,4 @@
-import { APIGatewayEvent, Callback, Context, Handler, SNSEvent } from 'aws-lambda';
+import { APIGatewayEvent, Callback, Context, Handler, ScheduledEvent, SNSEvent } from 'aws-lambda';
 import { DynamoDB, SNS } from 'aws-sdk';
 import { createHmac } from 'crypto';
 import nodeFetch from 'node-fetch';
@@ -161,6 +161,11 @@ export const getWords: Handler = (event: SNSEvent, context: Context, callback: C
       }).promise().catch((error: AWS.AWSError) => callback(error));
     }).catch((error: AWS.AWSError) => callback(error));
   }).catch((error: AWS.AWSError) => callback(error));
+};
+
+export const checkRSS: Handler = (event: ScheduledEvent, context: Context, callback: Callback) => {
+  // check rss from now back to 10am yesterday
+  // if monday, check back until friday 10am
 };
 
 export const help: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
