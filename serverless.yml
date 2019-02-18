@@ -42,13 +42,6 @@ functions:
     events:
       - sns: sendMessage
 
-  seed:
-    handler: handler.seed
-    memorySize: 128
-    description: 対象言葉の初期登録
-    events:
-      - sns: seed
-
   addWord:
     handler: handler.addWord
     memorysize: 128

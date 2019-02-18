@@ -3,8 +3,6 @@ import { DynamoDB, SNS } from 'aws-sdk';
 import { createHmac } from 'crypto';
 import nodeFetch from 'node-fetch';
 import { request } from 'https';
-import seedsJson from './seeds.json';
-import { words } from 'seeds.json';
 
 const dynamoDB: DynamoDB.DocumentClient = new DynamoDB.DocumentClient();
 const sns: SNS = new SNS();
@@ -75,20 +73,6 @@ export const sendMessage: Handler = (event: SNSEvent, context: Context, callback
     },
     body: `body=${message}`,
   } as ChatworkRequest).catch((error: Error) => callback(error));
-};
-
-export const seed: Handler = (event: APIGatewayEvent, context: Context, callback: Callback) => {
-  const params: DynamoDB.DocumentClient.PutItemInput = {
-    TableName: 'words',
-    Item: {
-      name: '',
-    },
-  };
-
-  seedsJson.words.forEach(({ name }: Word) => {
-    params.Item.name = name;
-    dynamoDB.put(params).promise().catch((error: AWS.AWSError) => callback(error));
-  });
 };
 
 export const addWord: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
