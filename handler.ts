@@ -2,6 +2,7 @@ import { APIGatewayEvent, Callback, Context, Handler, ScheduledEvent, SNSEvent }
 import { DynamoDB, SNS } from 'aws-sdk';
 import { createHmac } from 'crypto';
 import nodeFetch from 'node-fetch';
+import rssParser from 'rss-parser';
 
 const dynamoDB: DynamoDB.DocumentClient = new DynamoDB.DocumentClient();
 const sns: SNS = new SNS();
@@ -159,9 +160,20 @@ export const getWords: Handler = async (event: SNSEvent, context: Context, callb
   }
 };
 
-export const checkRSS: Handler = (event: ScheduledEvent, context: Context, callback: Callback) => {
-  // check rss from now back to 10am yesterday
-  // if monday, check back until friday 10am
+export const checkRSS: Handler = async (event: ScheduledEvent, context: Context, callback: Callback) => {
+  const parser = new rssParser();
+
+  try {
+    // get feeds
+    // foreach feed
+    const { items } = await parser.parseURL('https://www.jpcert.or.jp/rss/jpcert.rdf');
+    items.forEach(item => console.log(item.title));
+
+    // check rss from now back to 10am yesterday
+    // if monday, check back until friday 10am
+  } catch (error) {
+    callback(error);
+  }
 };
 
 export const help: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
