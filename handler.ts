@@ -143,24 +143,23 @@ export const removeWord: Handler = (event: SNSEvent, context: Context, callback:
   });
 };
 
-export const getWords: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
+export const getWords: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
   const words: string[] = [];
-  const message: string = '対象言葉：\n';
-  const topicName: string = 'sendMessage';
+  const message = '対象言葉：\n';
+  const topicName = 'sendMessage';
   const params: DynamoDB.DocumentClient.QueryInput = {
     TableName: 'words',
   };
 
-  dynamoDB.scan(params).promise().then((data: DynamoDB.DocumentClient.ScanOutput) => {
+  try {
+    const data = await dynamoDB.scan(params).promise();
     data.Items.forEach((word: Word) => words.push(word.name));
 
-    sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-      sns.publish({
-        TopicArn: data.TopicArn,
-        Message:  message + words.join('\n'),
-      }).promise().catch((error: AWS.AWSError) => callback(error));
-    }).catch((error: AWS.AWSError) => callback(error));
-  }).catch((error: AWS.AWSError) => callback(error));
+    const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
+    await sns.publish({ TopicArn, Message: message + words.join('\n') }).promise();
+  } catch (error) {
+    callback(error);
+  }
 };
 
 export const checkRSS: Handler = (event: ScheduledEvent, context: Context, callback: Callback) => {
