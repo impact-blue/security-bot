@@ -2,18 +2,17 @@ import { APIGatewayEvent, Callback, Context, Handler, ScheduledEvent, SNSEvent }
 import { DynamoDB, SNS } from 'aws-sdk';
 import { createHmac } from 'crypto';
 import nodeFetch from 'node-fetch';
-import { request } from 'https';
 
 const dynamoDB: DynamoDB.DocumentClient = new DynamoDB.DocumentClient();
 const sns: SNS = new SNS();
 
-export const checkMessage: Handler = (event: APIGatewayEvent, context: Context, callback: Callback) => {
-  const token: string = process.env.CHATWORK_WEBHOOK_TOKEN;
-  const requestSignature: string = event.headers['X-ChatWorkWebhookSignature'];
+export const checkMessage: Handler = async (event: APIGatewayEvent, context: Context, callback: Callback) => {
+  const token = process.env.CHATWORK_WEBHOOK_TOKEN;
+  const requestSignature = event.headers['X-ChatWorkWebhookSignature'];
   const requestBody: ChatworkWebhookResponse = JSON.parse(event.body);
   const hmac = createHmac('sha256', new Buffer(token, 'base64'));
-  const expectedSignature: string = hmac.update(JSON.stringify(requestBody)).digest('base64');
-  const messageBody: string = requestBody.webhook_event.body;
+  const expectedSignature = hmac.update(JSON.stringify(requestBody)).digest('base64');
+  const messageBody = requestBody.webhook_event.body;
 
   if (!token) {
     callback(new Error('CHATWORK_WEBHOOK_TOKEN is not set!'));
@@ -28,12 +27,12 @@ export const checkMessage: Handler = (event: APIGatewayEvent, context: Context, 
   }
 
   if (requestSignature !== expectedSignature) {
-    callback(new Error("The request signature doesn't match the expected signature!"));
+    callback(new Error('The request signature does not match the expected signature!'));
   }
 
   if (messageBody.startsWith('ブルーくん')) {
-    const addWord: number = messageBody.indexOf('を追加して');
-    const removeWord: number = messageBody.indexOf('を削除して');
+    const addWord: number = messageBody.indexOf('を追加');
+    const removeWord: number = messageBody.indexOf('を削除');
 
     let message: string = '';
     let topicName: string = '';
@@ -47,36 +46,41 @@ export const checkMessage: Handler = (event: APIGatewayEvent, context: Context, 
     } else if (removeWord > -1) {
       message = messageBody.substring('ブルーくん、'.length, removeWord);
       topicName = 'removeWord';
-    } else if (messageBody.indexOf('対象言葉みせて') > -1) {
+    } else if (messageBody.indexOf('対象言葉') > -1) {
       message = 'getWords';
       topicName = 'getWords';
     }
 
     if (message.length > 0 && topicName.length > 0) {
-      sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-        sns.publish({ TopicArn: data.TopicArn, Message: message }).promise().catch((error: AWS.AWSError) => callback(error));
-      }).catch((error: AWS.AWSError) => callback(error));
+      try {
+        const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
+        await sns.publish({ TopicArn, Message: message }).promise();
+      } catch (error) {
+        callback(error);
+      }
     }
   }
 };
 
-export const sendMessage: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
-  const chatroomId: string = process.env.CHATWORK_CHATROOM_ID;
-  const token: string = process.env.CHATWORK_API_TOKEN;
-  const message: string = `[info][title]ブルーくん[/title]${event.Records[0].Sns.Message}[/info]`;
-
-  nodeFetch(`https://api.chatwork.com/v2/rooms/${chatroomId}/messages`, {
+export const sendMessage: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
+  const request: ChatworkRequest = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'X-ChatWorkToken': token,
+      'X-ChatWorkToken': process.env.CHATWORK_API_TOKEN,
     },
-    body: `body=${message}`,
-  } as ChatworkRequest).catch((error: Error) => callback(error));
+    body: `body=[info][title]ブルーくん[/title]${event.Records[0].Sns.Message}[/info]`,
+  };
+
+  try {
+    await nodeFetch(`https://api.chatwork.com/v2/rooms/${process.env.CHATWORK_CHATROOM_ID}/messages`, request);
+  } catch (error) {
+    callback(error);
+  }
 };
 
-export const addWord: Handler = (event: SNSEvent, context: Context, callback: Callback) => {
-  const word: string = event.Records[0].Sns.Message;
+export const addWord: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
+  const word = event.Records[0].Sns.Message;
   const params: DynamoDB.DocumentClient.PutItemInput = {
     TableName: 'words',
     Item: {
@@ -88,25 +92,23 @@ export const addWord: Handler = (event: SNSEvent, context: Context, callback: Ca
     },
   };
 
-  dynamoDB.put(params).promise().then((data: DynamoDB.PutItemOutput) => {
-    const message: string = `${word}を追加しました！`;
-    const topicName: string = 'sendMessage';
+  try {
+    await dynamoDB.put(params).promise();
 
-    sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-      sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
-    }).catch((error: AWS.AWSError) => callback(error));
-  }).catch((error: AWS.AWSError) => {
+    const { TopicArn } = await sns.createTopic({ Name: 'sendMessage' }).promise();
+    await sns.publish({ TopicArn, Message: `${word}を追加しました！` }).promise();
+  } catch (error) {
     if (error.code === 'ConditionalCheckFailedException') {
-      const message: string = `${word}はすでに登録されています！`;
-      const topicName: string = 'sendMessage';
-
-      sns.createTopic({ Name: topicName }).promise().then((data: SNS.CreateTopicResponse) => {
-        sns.publish({ TopicArn: data.TopicArn, Message:  message }).promise().catch((error: AWS.AWSError) => callback(error));
-      }).catch((error: AWS.AWSError) => callback(error));
+      try {
+        const { TopicArn } = await sns.createTopic({ Name: 'sendMessage' }).promise();
+        await sns.publish({ TopicArn, Message: `${word}はすでに登録されています！` }).promise();
+      } catch (error) {
+        callback(error);
+      }
     } else {
       callback(error);
     }
-  });
+  }
 };
 
 export const removeWord: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
@@ -125,19 +127,13 @@ export const removeWord: Handler = async (event: SNSEvent, context: Context, cal
   try {
     await dynamoDB.delete(params).promise();
 
-    const message = `${word}を削除しました！`;
-    const topicName = 'sendMessage';
-    const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
-
-    await sns.publish({ TopicArn, Message:  message }).promise();
+    const { TopicArn } = await sns.createTopic({ Name: 'sendMessage' }).promise();
+    await sns.publish({ TopicArn, Message: `${word}を削除しました！` }).promise();
   } catch (error) {
     if (error.code === 'ConditionalCheckFailedException') {
       try {
-        const message = `${word}は登録されていません！`;
-        const topicName = 'sendMessage';
-        const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
-
-        await sns.publish({ TopicArn, Message:  message }).promise();
+        const { TopicArn } = await sns.createTopic({ Name: 'sendMessage' }).promise();
+        await sns.publish({ TopicArn, Message: `${word}は登録されていません！` }).promise();
       } catch (error) {
         callback(error);
       }
@@ -148,19 +144,16 @@ export const removeWord: Handler = async (event: SNSEvent, context: Context, cal
 };
 
 export const getWords: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
-  const words: string[] = [];
-  const message = '対象言葉：\n';
-  const topicName = 'sendMessage';
   const params: DynamoDB.DocumentClient.QueryInput = {
     TableName: 'words',
   };
 
   try {
     const data = await dynamoDB.scan(params).promise();
-    data.Items.forEach((word: Word) => words.push(word.name));
+    const words: string[] = data.Items.map((word: Word) => word.name);
+    const { TopicArn } = await sns.createTopic({ Name: 'sendMessage' }).promise();
 
-    const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
-    await sns.publish({ TopicArn, Message: message + words.join('\n') }).promise();
+    await sns.publish({ TopicArn, Message: `対象言葉：\n${words.join('\n')}` }).promise();
   } catch (error) {
     callback(error);
   }
@@ -173,10 +166,9 @@ export const checkRSS: Handler = (event: ScheduledEvent, context: Context, callb
 
 export const help: Handler = async (event: SNSEvent, context: Context, callback: Callback) => {
   const message = '使い方：\nブルーくん、使い方教えて\nブルーくん、phpを追加して\nブルーくん、phpを削除して\nブルーくん、対象言葉みせて';
-  const topicName = 'sendMessage';
 
   try {
-    const { TopicArn } = await sns.createTopic({ Name: topicName }).promise();
+    const { TopicArn } = await sns.createTopic({ Name: 'sendMessage' }).promise();
     await sns.publish({ TopicArn, Message:  message }).promise();
   } catch (error) {
     callback(error);
