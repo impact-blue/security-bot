@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "aws-sdk": "^2.351.0",
+    "moment": "^2.24.0",
     "node-fetch": "^2.3.0",
     "rss-parser": "^3.6.2"
   },

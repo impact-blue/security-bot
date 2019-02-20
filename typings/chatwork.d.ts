@@ -1,16 +1,16 @@
 interface ChatworkRequest {
-  method: 'POST',
+  method: 'POST';
   headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-ChatWorkToken': string,
-  },
-  body: string,
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'X-ChatWorkToken': string,
+  };
+  body: string;
 }
 
 interface ChatworkWebhookResponse {
-  webhook_setting_id: string,
-  webhook_event_type: string,
-  webhook_event_time: number,
+  webhook_setting_id: string;
+  webhook_event_type: string;
+  webhook_event_time: number;
   webhook_event: {
     from_account_id: number,
     to_account_id: number,
@@ -19,5 +19,5 @@ interface ChatworkWebhookResponse {
     body: string,
     send_time: number,
     update_time: number,
-  }
+  };
 }

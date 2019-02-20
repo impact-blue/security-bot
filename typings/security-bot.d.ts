@@ -1,3 +1,3 @@
 interface SecurityBotSNSMessage {
-  word: string,
+  word: string;
 }

@@ -2,7 +2,8 @@ import { APIGatewayEvent, Callback, Context, Handler, ScheduledEvent, SNSEvent }
 import { DynamoDB, SNS } from 'aws-sdk';
 import { createHmac } from 'crypto';
 import nodeFetch from 'node-fetch';
-import rssParser from 'rss-parser';
+import rssParser, { Items } from 'rss-parser';
+import moment, { relativeTimeThreshold } from 'moment';
 
 const dynamoDB: DynamoDB.DocumentClient = new DynamoDB.DocumentClient();
 const sns: SNS = new SNS();
@@ -161,16 +162,54 @@ export const getWords: Handler = async (event: SNSEvent, context: Context, callb
 };
 
 export const checkRSS: Handler = async (event: ScheduledEvent, context: Context, callback: Callback) => {
+  const items: Items[] = [];
   const parser = new rssParser();
+  const now = moment.utc();
+  const isMonday = now.format('dddd') === 'Monday';
+  const lastCheck = moment.utc();
+  const words: Word[] = [];
+  const feeds = [
+    'https://www.jpcert.or.jp/rss/jpcert.rdf',
+    'https://jvndb.jvn.jp/en/rss/jvndb_new.rdf',
+  ];
 
   try {
-    // get feeds
-    // foreach feed
-    const { items } = await parser.parseURL('https://www.jpcert.or.jp/rss/jpcert.rdf');
-    items.forEach(item => console.log(item.title));
+    const data = await dynamoDB.scan({ TableName: 'words' }).promise();
+    data.Items.forEach(item => words.push(item as Word));
+  } catch (error) {
+    callback(error);
+  }
 
-    // check rss from now back to 10am yesterday
-    // if monday, check back until friday 10am
+  if (isMonday) {
+    lastCheck.subtract(3, 'days');
+  } else {
+    lastCheck.subtract(1, 'days');
+  }
+
+  lastCheck.set({ hour: 10, minute: 0, second: 0 });
+
+  try {
+    // 全てのフィードのアイテムを集める
+    for await (const feed of feeds) { // asyncなので、Array.reduceよりfor of
+      const output = await parser.parseURL(feed);
+      items.concat(output.items);
+    }
+
+    // lastCheckとnowの間のアイテムだけを残す
+    items.filter((item) => {
+      const isoDate = moment(item.isoDate);
+      return isoDate.isAfter(lastCheck) && isoDate.isBefore(now);
+    });
+
+    // 対象言葉がタイトルに含まれているアイテムだけを残す
+    items.filter(item => words.filter(word => item.title.indexOf(word.name) > -1).length > 0);
+
+    // チャットワークのメッセージに必要な情報だけを残す
+    items.map(item => ({ title: item.title, link: item.link }));
+
+    // チャットワークへメッセージ
+    const { TopicArn } = await sns.createTopic({ Name: 'sendMessage' }).promise();
+    await sns.publish({ TopicArn, Message: `アイテム：\n${items.join('\n')}` }).promise();
   } catch (error) {
     callback(error);
   }
