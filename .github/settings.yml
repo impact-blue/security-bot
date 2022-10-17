@@ -1,0 +1,8 @@
+_extends: .github
+
+branches:
+  - name: main
+    protection:
+      required_status_checks:
+        contexts:
+          - check

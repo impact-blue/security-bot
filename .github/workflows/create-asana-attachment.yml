@@ -1,0 +1,10 @@
+jobs:
+  create-asana-attachment:
+    secrets: inherit
+    uses: impact-blue/.github/.github/workflows/create-asana-attachment.yml@main
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
